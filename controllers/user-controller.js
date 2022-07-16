@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs')
 const { User, Restaurant, Comment, Favorite, Like, Followship } = require('../models')
-const { imgurFileHandler } = require('../helpers/file-helpers')
+const { uploadImage } = require('../helpers/file-helpers')
 const { EditUserProfileError } = require('../helpers/error-helpers')
 
 const userController = {
@@ -8,16 +8,17 @@ const userController = {
     res.render('signup')
   },
   signUp: (req, res, next) => {
-    if (req.body.password !== req.body.passwordCheck) throw new Error('Passwords do not match!')
+    const { name, email, password, passwordCheck } = req.body
+    if (password !== passwordCheck) throw new Error('Passwords do not match!')
 
-    User.findOne({ where: { email: req.body.email } })
+    User.findOne({ where: { email } })
       .then(user => {
         if (user) throw new Error('Email already exists!')
-        return bcrypt.hash(req.body.password, 10)
+        return bcrypt.hash(password, 10)
       })
       .then(hash => User.create({
-        name: req.body.name,
-        email: req.body.email,
+        name,
+        email,
         password: hash
       }))
       .then(() => {
@@ -40,19 +41,21 @@ const userController = {
   },
   getUser: (req, res, next) => {
     const { id } = req.params
+    const userId = Number(id)
     return Promise.all([
       User.findByPk(id, { raw: true }),
       Comment.findAndCountAll({
         include: Restaurant,
         where: {
-          ...id ? { id } : {}
+          ...userId ? { userId } : {}
         },
         raw: true,
         nest: true
       })
     ])
       .then(([user, comments]) => {
-        const data = comments.rows.map(c => ({ ...c }))
+        const data = comments.rows
+          .map(c => ({ ...c }))
         if (!user) throw new Error("User didn't exist!")
         return res.render('users/profile', {
           user,
@@ -80,7 +83,7 @@ const userController = {
     if (Number(userId) !== Number(id)) throw new EditUserProfileError('Edit not allowed!')
     return Promise.all([
       User.findByPk(id),
-      imgurFileHandler(file)
+      uploadImage(file)
     ])
       .then(([user, filePath]) => {
         if (!user) throw new Error("User didn't exist!")
@@ -115,7 +118,7 @@ const userController = {
     ])
       .then(([restaurant, favorite]) => {
         if (!restaurant) throw new Error("Restaurant didn't exist!")
-        if (favorite) throw new Error('You have favorited this restaurant!')
+        if (favorite) throw new Error('You already favorited this restaurant!')
         return Favorite.create({
           userId,
           restaurantId
@@ -180,18 +183,21 @@ const userController = {
       .catch(next)
   },
   getTopUsers: (req, res, next) => {
+    const followingsId = req.user && req.user.Followings
     return User.findAll({
-      include: [{ model: User, as: 'Followers' }]
+      include: [{
+        model: User, as: 'Followers'
+      }]
     })
       .then(users => {
-        const result = users
+        const data = users
           .map(user => ({
             ...user.toJSON(),
             followerCount: user.Followers.length,
-            isFollowed: req.user.Followings.some(f => f.id === user.id)
+            isFollowed: followingsId.some(f => f.id === user.id)
           }))
           .sort((a, b) => b.followerCount - a.followerCount)
-        res.render('top-users', { users: result })
+        return res.render('top-users', { users: data })
       })
       .catch(next)
   },
