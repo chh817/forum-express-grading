@@ -1,8 +1,8 @@
-<div class="card mb-3" style="width: auto;">
+<div class="card mb-3" style="width: auto">
   <div class="row g-0">
     <div class="col-md-3">
-      {{#if user.image}}
-      <img src="{{user.image}}" width="250px" height="250px" class="img-fluid rounded-start" alt="User Image">
+      {{#if userClicked.image}}
+      <img src="{{userClicked.image}}" width="250px" height="250px" class="img-fluid rounded-start" alt="User Image">
       {{else}}
       <img src="https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973461_960_720.png" width="250px"
         height="250px" class="img-fluid rounded-start" alt="Blank Profile Picture">
@@ -10,29 +10,131 @@
     </div>
     <div class="col-md-9">
       <div class="card-body">
-        <h3 class="card-title">{{user.name}}</h3>
-        <p class="card-text">{{user.email}}</p>
-        <p class="card-text"><strong>{{comments.count}}</strong> 已評論餐廳</p>
-        <a href="/users/{{user.id}}/edit" class="btn btn-primary mt-2">Edit</a>
+        <h3 class="card-title">{{userClicked.name}}</h3>
+        <p class="card-text">{{userClicked.email}}</p>
+        <p class="card-text"><strong>{{userClicked.commentedRestaurants.length}}</strong> 已評論餐廳</p>
+        <p class="card-text"><strong>{{userClicked.Followings.length}}</strong> followings (追蹤者)</p>
+        <p class="card-text"><strong>{{userClicked.Followers.length}}</strong> followers (追隨者)</p>
+        {{#ifCond userClicked.id userId}}
+        <a href="/users/{{userClicked.id}}/edit" class="btn btn-primary mt-2">Edit</a>
+        {{else}}
+        {{#if userClicked.isFollowed }}
+        <form action="/following/{{userClicked.id}}?_method=DELETE" method="POST" style="display: contents;">
+          <button type="submit" class="btn btn-danger mt-2">取消追蹤</button>
+        </form>
+        {{else}}
+        <form action="/following/{{userClicked.id}}" method="POST" style="display: contents;">
+          <button type="submit" class="btn btn-primary mt-2">追蹤</button>
+        </form>
+        {{/if}}
+        {{/ifCond}}
       </div>
     </div>
   </div>
 </div>
 
-<div class="card">
-  <div class="card-header">
-    <strong>{{comments.count}}</strong> 已評論餐廳
-  </div>
-  <div class="card-body d-flex flex-wrap">
-    {{#each data}}
-    <div class="col-sm-1 ms-5 mt-4">
-      <div class="card mb-4 shadow-sm">
-        <a href="/restaurants/{{this.restaurantId}}">
-          <img class="card-img-top img-fluid" src="{{this.Restaurant.image}}" alt="Card image cap" width="6px"
-            height="6px" style="transition: opacity 0.5s; opacity:0;" onload="this.style.opacity=1;">
-        </a>
+<div class="d-flex">
+  <div class="col-md-8" style="width: 320px">
+    <div class="card mt-4" style="height: auto">
+      <div class="card-header">
+        <strong>{{userClicked.Followings.length}}</strong> followings (追蹤者)
+      </div>
+      <div class="card-body d-flex flex-wrap">
+        {{#each userClicked.Followings}}
+        <div class="col-sm-1 ms-1 my-auto" style="width: 90px">
+          <div class="card mb-4 shadow-sm">
+            <a href="/users/{{this.id}}">
+              {{#if this.image}}
+              <img class="card-img-top img-fluid" src="{{this.image}}" alt="Card image cap" width="6px" height="6px"
+                style="transition: opacity 0.5s; opacity:0;" onload="this.style.opacity=1;">
+              {{else}}
+              <img class="card-img-top img-fluid"
+                src="https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973461_960_720.png"
+                alt="Card image cap" width="6px" height="6px" style="transition: opacity 0.5s; opacity:0;"
+                onload="this.style.opacity=1;">
+              {{/if}}
+            </a>
+          </div>
+        </div>
+        {{/each}}
       </div>
     </div>
-    {{/each}}
+
+    <div class="card mt-4" style="height: auto">
+      <div class="card-header">
+        <strong>{{userClicked.Followers.length}}</strong> followers (追隨者)
+      </div>
+      <div class="card-body d-flex flex-wrap">
+        {{#each userClicked.Followers}}
+        <div class="col-sm-1 ms-1 my-auto" style="width: 70px">
+          <div class="card mb-4 shadow-sm">
+            <a href="/users/{{this.id}}">
+              {{#if this.image}}
+              <img class="card-img-top img-fluid" src="{{this.image}}" alt="Card image cap" width="6px" height="6px"
+                style="transition: opacity 0.5s; opacity:0;" onload="this.style.opacity=1;">
+              {{else}}
+              <img class="card-img-top img-fluid"
+                src="https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973461_960_720.png"
+                alt="Card image cap" width="6px" height="6px" style="transition: opacity 0.5s; opacity:0;"
+                onload="this.style.opacity=1;">
+              {{/if}}
+            </a>
+          </div>
+        </div>
+        {{/each}}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-8 mx-4" style="width: 950px">
+    <div class="card mt-4" style="height: auto">
+      <div class="card-header">
+        <strong>{{userClicked.commentedRestaurants.length}}</strong> 已評論餐廳
+      </div>
+      <div class="card-body d-flex flex-wrap">
+        {{#each userClicked.commentedRestaurants}}
+        <div class="col-sm-1 ms-1 my-auto">
+          <div class="card mb-4 shadow-sm">
+            <a href="/restaurants/{{this.id}}">
+              {{#if this.image}}
+              <img class="card-img-top img-fluid" src="{{this.image}}" alt="Card image cap" width="6px" height="6px"
+                style="transition: opacity 0.5s; opacity:0;" onload="this.style.opacity=1;">
+              {{else}}
+              <img class="card-img-top img-fluid"
+                src="https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973461_960_720.png"
+                alt="Card image cap" width="6px" height="6px" style="transition: opacity 0.5s; opacity:0;"
+                onload="this.style.opacity=1;">
+              {{/if}}
+            </a>
+          </div>
+        </div>
+        {{/each}}
+      </div>
+    </div>
+
+    <div class="card mt-4" style="height: auto">
+      <div class="card-header">
+        <strong>{{userClicked.FavoritedRestaurants.length}}</strong> 收藏的餐廳
+      </div>
+      <div class="card-body d-flex flex-wrap">
+        {{#each userClicked.FavoritedRestaurants}}
+        <div class="col-sm-1 ms-1 my-auto">
+          <div class="card shadow-sm">
+            <a href="/restaurants/{{this.id}}">
+              {{#if this.image}}
+              <img class="card-img-top img-fluid" src="{{this.image}}" alt="Card image cap" width="6px" height="6px"
+                style="transition: opacity 0.5s; opacity:0;" onload="this.style.opacity=1;">
+              {{else}}
+              <img class="card-img-top img-fluid"
+                src="https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973461_960_720.png"
+                alt="Card image cap" width="6px" height="6px" style="transition: opacity 0.5s; opacity:0;"
+                onload="this.style.opacity=1;">
+              {{/if}}
+            </a>
+          </div>
+        </div>
+        {{/each}}
+      </div>
+    </div>
   </div>
 </div>

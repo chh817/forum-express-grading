@@ -1,7 +1,6 @@
 const bcrypt = require('bcryptjs')
 const { User, Restaurant, Comment, Favorite, Like, Followship } = require('../models')
 const { uploadImage } = require('../helpers/file-helpers')
-const { EditUserProfileError } = require('../helpers/error-helpers')
 
 const userController = {
   signUpPage: (req, res) => {
@@ -40,28 +39,29 @@ const userController = {
     res.redirect('/signin')
   },
   getUser: (req, res, next) => {
+    const userId = req.user.id
+    const followings = (req.user && req.user.Followings) || []
     const { id } = req.params
-    const userId = Number(id)
-    return Promise.all([
-      User.findByPk(id, { raw: true }),
-      Comment.findAndCountAll({
-        include: Restaurant,
-        where: {
-          ...userId ? { userId } : {}
-        },
-        raw: true,
-        nest: true
-      })
-    ])
-      .then(([user, comments]) => {
-        const data = comments.rows
-          .map(c => ({ ...c }))
-        if (!user) throw new Error("User didn't exist!")
-        return res.render('users/profile', {
-          user,
-          comments,
-          data
-        })
+    return User.findByPk(id, {
+      include: [
+        { model: Comment, include: Restaurant },
+        { model: Restaurant, as: 'FavoritedRestaurants' },
+        { model: User, as: 'Followers' },
+        { model: User, as: 'Followings' }
+      ]
+    })
+      .then(userClicked => {
+        if (!userClicked) throw new Error("User didn't exist!")
+        userClicked = userClicked.toJSON()
+        userClicked.commentedRestaurants = (userClicked.Comments && userClicked.Comments.reduce((cr, c) => {
+          if (!cr.some(cr => cr.id === c.restaurantId)) {
+            cr.push(c.Restaurant)
+          }
+          return cr
+        }, [])) || []
+        console.log(userClicked.commentedRestaurants)
+        userClicked.isFollowed = followings.some(f => f.id === userClicked.id)
+        return res.render('users/profile', { userClicked, userId })
       })
       .catch(next)
   },
@@ -76,11 +76,9 @@ const userController = {
   },
   putUser: (req, res, next) => {
     const { id } = req.params
-    const userId = req.user.id
     const { name } = req.body
     if (!name) throw new Error('Username is required!')
     const { file } = req
-    if (Number(userId) !== Number(id)) throw new EditUserProfileError('Edit not allowed!')
     return Promise.all([
       User.findByPk(id),
       uploadImage(file)
@@ -96,13 +94,7 @@ const userController = {
         req.flash('success_messages', '使用者資料編輯成功')
         return res.redirect(`/users/${id}`)
       })
-      .catch(err => {
-        if (err.name === EditUserProfileError) {
-          req.flash('error_messages', 'Edit not allowed!')
-          return res.redirect('back')
-        }
-        next(err)
-      })
+      .catch(next)
   },
   addFavorite: (req, res, next) => {
     const userId = req.user.id
@@ -183,7 +175,8 @@ const userController = {
       .catch(next)
   },
   getTopUsers: (req, res, next) => {
-    const followingsId = req.user && req.user.Followings
+    const userId = req.user.id
+    const followings = (req.user && req.user.Followings) || []
     return User.findAll({
       include: [{
         model: User, as: 'Followers'
@@ -194,10 +187,10 @@ const userController = {
           .map(user => ({
             ...user.toJSON(),
             followerCount: user.Followers.length,
-            isFollowed: followingsId.some(f => f.id === user.id)
+            isFollowed: followings.some(f => f.id === user.id)
           }))
           .sort((a, b) => b.followerCount - a.followerCount)
-        return res.render('top-users', { users: data })
+        return res.render('top-users', { users: data, userId })
       })
       .catch(next)
   },
